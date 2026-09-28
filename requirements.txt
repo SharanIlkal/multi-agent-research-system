@@ -1,0 +1,17 @@
+langchain
+langchain-core
+langchain-community
+langchain-google-genai
+google-generativeai
+tavily-python
+beautifulsoup4
+requests
+python-dotenv
+httpx
+aiohttp
+pydantic
+lxml
+typing-extensions
+rich
+streamlit
+pymupdf
