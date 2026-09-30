@@ -68,25 +68,19 @@ def is_retryable_error(error: Exception) -> bool:
 def invoke_with_fallback(
     primary_callable: Callable[[], T],
     fallback_callable: Callable[[], T],
-    max_attempts: int = 1,
+    max_attempts: int = 2,
 ) -> T:
     """
-    Execute a primary LLM operation and automatically fall back
-    to another model if the primary model encounters a
-    retryable error.
-    Example:
-        result = invoke_with_fallback(
-            primary_callable=lambda: primary.invoke(prompt),
-            fallback_callable=lambda: fallback.invoke(prompt),
-        )
+    Execute the primary LLM with retries.
+    If the primary model continues to fail with a retryable
+    error, switch to the fallback model and retry it as well.
     """
-    last_error = None
+    last_primary_error = None
     for attempt in range(1, max_attempts + 1):
         try:
             return primary_callable()
-
         except Exception as exc:
-            last_error = exc
+            last_primary_error = exc
             print(
                 f"[Primary LLM] Attempt "
                 f"{attempt}/{max_attempts} failed: {exc}"
@@ -94,7 +88,6 @@ def invoke_with_fallback(
 
             if not is_retryable_error(exc):
                 raise
-
             if attempt < max_attempts:
                 wait_time = 2 ** (attempt - 1)
                 print(
@@ -102,27 +95,36 @@ def invoke_with_fallback(
                     f"{wait_time} seconds..."
                 )
                 time.sleep(wait_time)
-
-    print(
-        "\n[LLM FALLBACK] "
-        "Primary model unavailable."
-    )
-
+    print("\n[LLM FALLBACK] " "Primary model unavailable.")
     print(
         f"[LLM FALLBACK] Switching to: "
         f"{GEMINI_FALLBACK_MODEL}"
     )
 
-    try:
-        return fallback_callable()
-    except Exception as fallback_error:
-        print("[LLM FALLBACK] Fallback model also failed.")
-        raise RuntimeError(
-            "Both primary and fallback Gemini models "
-            "failed.\n"
-            f"Primary error: {last_error}\n"
-            f"Fallback error: {fallback_error}"
-        ) from fallback_error
+    last_fallback_error = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return fallback_callable()
+        except Exception as exc:
+            last_fallback_error = exc
+            print(
+                f"[LLM FALLBACK] Attempt "
+                f"{attempt}/{max_attempts} failed: {exc}"
+            )
+            if not is_retryable_error(exc):
+                raise
+            if attempt < max_attempts:
+                wait_time = 2 ** (attempt - 1)
+                print(
+                    f"[LLM FALLBACK] Retrying in "
+                    f"{wait_time} seconds..."
+                )
+                time.sleep(wait_time)
+    raise RuntimeError(
+        "Both primary and fallback Gemini models failed.\n"
+        f"Primary error: {last_primary_error}\n"
+        f"Fallback error: {last_fallback_error}"
+    )
 
 if __name__ == "__main__":
     print("LLM Factory loaded successfully.")

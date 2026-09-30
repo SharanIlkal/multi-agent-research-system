@@ -438,35 +438,71 @@ class ResearchOrchestrator:
         return state
 
     
-    def extract_claims(self,state: ResearchState,) -> ResearchState:
-        self._update_status(state, "extracting_claims",)
+    def extract_claims(self, state: ResearchState) -> ResearchState:
+        self._update_status(state, "extracting_claims")
         self._trace(
             state,
             "claims",
             "claim_extraction_started",
             {
-                "sources": len(
-                    state.sources
-                ),
+                "sources": len(state.sources),
             },
         )
-        from schemas import ResearchClaim
-        claims: list[ResearchClaim] = []
+
         from claim_extractor import extract_claims
-        for source in state.sources:
-            result = extract_claims(
-                state.topic,
-                source,
-            )
-            claims.extend(result.claims)
-        if not claims:
-            raise RuntimeError("No research claims could be extracted from the live sources.")
+        claims = []
+        successful_sources = 0
+        failed_sources = 0
+        for index, source in enumerate(state.sources, start=1):
+            try:
+                self._trace(
+                    state,
+                    "claims",
+                    "source_claim_extraction_started",
+                    {
+                        "source_index": index,
+                        "source_title": source.title,
+                        "source_url": source.url,
+                    },
+                )
+
+                result = extract_claims(state.topic, source,)
+                source_claims = result.claims
+                claims.extend(source_claims)
+                successful_sources += 1
+                self._trace(
+                    state,
+                    "claims",
+                    "source_claim_extraction_completed",
+                    {
+                        "source_index": index,
+                        "source_title": source.title,
+                        "claims": len(source_claims),
+                    },
+                )
+
+            except Exception as exc:
+                failed_sources += 1
+                self._trace(
+                    state,
+                    "claims",
+                    "source_claim_extraction_failed",
+                    {
+                        "source_index": index,
+                        "source_title": source.title,
+                        "error": str(exc),
+                    },
+                )
+                print(
+                    f"[ORCHESTRATOR] Claim extraction failed for source "
+                    f"{index}: {exc}"
+                )
+                continue
         state._claims = claims
-        stored_claims = (
-            self._store_claims_in_memory(
-                claims
-            )
-        )
+
+        if not claims:
+            raise RuntimeError("No research claims could be extracted from any live source.")
+        stored_claims = self._store_claims_in_memory(claims)
         self._trace(
             state,
             "memory",
@@ -475,18 +511,30 @@ class ResearchOrchestrator:
                 "claims": stored_claims,
             },
         )
+
         self._trace(
             state,
             "claims",
             "claims_extracted",
             {
                 "claims": len(claims),
+                "successful_sources": successful_sources,
+                "failed_sources": failed_sources,
             },
         )
-        self._update_status(
-            state,
-            "claims_extracted",
-        )
+
+        if failed_sources > 0:
+            self._trace(
+                state,
+                "claims",
+                "partial_claim_extraction",
+                {
+                    "successful_sources": successful_sources,
+                    "failed_sources": failed_sources,
+                },
+            )
+
+        self._update_status(state, "claims_extracted",)
         return state
     
     def build_evidence(self, state: ResearchState,) -> ResearchState:

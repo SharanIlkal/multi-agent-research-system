@@ -4,6 +4,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from config import (
     GEMINI_FALLBACK_MODEL,
     GEMINI_MODEL,
+    GEMINI_MAX_RETRIES,
     GEMINI_TEMPERATURE,
 )
 from llm_factory import is_retryable_error
@@ -17,7 +18,7 @@ def create_llm(model_name: str):
     return ChatGoogleGenerativeAI(
         model=model_name,
         temperature=GEMINI_TEMPERATURE,
-        max_retries=0,
+        max_retries=GEMINI_MAX_RETRIES,
         timeout=30,
     )
 
