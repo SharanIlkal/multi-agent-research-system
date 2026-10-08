@@ -2,7 +2,7 @@ import streamlit as st
 from orchestrator import ResearchOrchestrator
 
 st.set_page_config(
-    page_title="AI Research Analyst",
+    page_title="Multi-Agent Research Analyst",
     page_icon="" ,
     layout="wide",
     initial_sidebar_state="expanded"
@@ -21,7 +21,7 @@ if "research_trace" not in st.session_state:
     st.session_state.research_trace = []
 
 st.markdown(
-    '<div class="research-title"> AI Research Analyst</div>',
+    '<div class="research-title">Multi-Agent Research Analyst</div>',
     unsafe_allow_html=True
 )
 
@@ -35,7 +35,7 @@ with st.sidebar:
     topic = st.text_area(
         "Research Question",
         placeholder="Enter your Question",
-        height=130
+        height=150
     )
 
     max_sources = st.slider(
@@ -52,10 +52,9 @@ with st.sidebar:
         value=2
     )
     st.divider()
-    st.caption("Live mode only")
     st.caption("Gemini and Tavily are used for every research run.")
     run_research = st.button(
-        " Start Live Research",
+        " Start Research",
         type="primary",
         use_container_width=True
     )
@@ -85,12 +84,12 @@ if run_research:
                 max_refinement_iterations=max_refinement_iterations
             )
 
-            status_box.info("Gemini is creating the research plan...")
+            status_box.info("Our Agent is creating the research plan...")
             progress.progress(15)
             state = orchestrator.run(topic.strip())
             progress.progress(100)
             if state.status == "completed":
-                status_box.success("Live research completed successfully.")
+                status_box.success("Research completed successfully.")
             else:
                 status_box.warning(f"Research finished with status: {state.status}")
             st.session_state.research_state = state
@@ -98,7 +97,7 @@ if run_research:
         except Exception as exc:
             progress.empty()
             status_box.empty()
-            st.error(f"Live research failed: {exc}")
+            st.error(f"Research failed: {exc}")
 
 state = st.session_state.research_state
 
